@@ -18,6 +18,8 @@ var streznik = http.createServer(function(zahteva, odgovor) {
        posredujSeznamDatotek(odgovor);
    } else if (zahteva.url.startsWith('/brisi')) { 
        izbrisiDatoteko(odgovor, dataDir + zahteva.url.replace("/brisi", ""));
+   } else if (zahteva.url.startsWith('/poglej')) { 
+       posredujStaticnoVsebino(odgovor, dataDir + zahteva.url.replace("/poglej", ""), "");
    } else if (zahteva.url.startsWith('/prenesi')) { 
        posredujStaticnoVsebino(odgovor, dataDir + zahteva.url.replace("/prenesi", ""), "application/octet-stream");
    } else if (zahteva.url == "/nalozi") {
@@ -26,6 +28,11 @@ var streznik = http.createServer(function(zahteva, odgovor) {
        posredujStaticnoVsebino(odgovor, './public' + zahteva.url, "");
    }
 });
+
+streznik.listen(process.env.PORT, function()
+{
+    console.log("Server is online");
+})
 
 function posredujOsnovnoStran(odgovor) {
     posredujStaticnoVsebino(odgovor, './public/fribox.html', "");
@@ -36,13 +43,13 @@ function posredujStaticnoVsebino(odgovor, absolutnaPotDoDatoteke, mimeType) {
             if (datotekaObstaja) {
                 fs.readFile(absolutnaPotDoDatoteke, function(napaka, datotekaVsebina) {
                     if (napaka) {
-                        //Posreduj napako
+                        posredujNapako404(odgovor);
                     } else {
                         posredujDatoteko(odgovor, absolutnaPotDoDatoteke, datotekaVsebina, mimeType);
                     }
                 })
             } else {
-                //Posreduj napako
+                posredujNapako404(odgovor);
             }
         })
 }
@@ -61,7 +68,7 @@ function posredujSeznamDatotek(odgovor) {
     odgovor.writeHead(200, {'Content-Type': 'application/json'});
     fs.readdir(dataDir, function(napaka, datoteke) {
         if (napaka) {
-            //Posreduj napako
+            posredujNapako404(odgovor);
         } else {
             var rezultat = [];
             for (var i=0; i<datoteke.length; i++) {
@@ -88,10 +95,32 @@ function naloziDatoteko(zahteva, odgovor) {
         var datoteka = this.openedFiles[0].name;
         fs.copy(zacasnaPot, dataDir + datoteka, function(napaka) {  
             if (napaka) {
-                //Posreduj napako
+                posredujNapako404(odgovor);
             } else {
                 posredujOsnovnoStran(odgovor);        
             }
         });
+    });
+}
+
+function posredujNapako404(odgovor)
+{
+    odgovor.writeHead(404, {'Content-Type':'text/plain'});
+    odgovor.write("Error 404: content not found...");
+    odgovor.end();
+}
+
+function izbrisiDatoteko(odgovor, datoteka) 
+{
+    fs.unlink(datoteka, function(napaka)
+    {
+        if(napaka)
+            posredujNapako404(napaka);
+        else
+        {
+            odgovor.writeHead(200, {'Content-Type':'text/plain'});
+            odgovor.write("Datoteka izbrisana");
+            odgovor.end();
+        }
     });
 }
